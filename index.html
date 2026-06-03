@@ -248,11 +248,9 @@
 </head>
 <body>
 
-    <!-- SEQUENTIAL SETUP MODAL -->
     <div class="modal-overlay open" id="game-modal">
         <div class="modal-card">
             
-            <!-- STEP 1: SCORE TYPE SELECTOR -->
             <div class="setup-step active" id="step-1">
                 <h2>Select Game Mode</h2>
                 <p>Choose your leg target value</p>
@@ -263,7 +261,6 @@
                 </div>
             </div>
 
-            <!-- STEP 2: MULTIPLIER RULE SELECTOR -->
             <div class="setup-step" id="step-2">
                 <h2>Select Match Rules</h2>
                 <p>Choose entry and exit modifiers</p>
@@ -277,7 +274,6 @@
         </div>
     </div>
 
-    <!-- TOP HUD -->
     <div class="hud-top">
         <div class="player-box active p1" id="card-p1">
             <div class="name">Player 1</div>
@@ -293,20 +289,16 @@
         </div>
     </div>
 
-    <!-- MAIN INTERACTIVE WRAPPER -->
     <div class="board-viewport" id="viewport">
         <div class="board-container" id="board">
             <svg viewBox="0 0 600 600" id="dartboard-svg">
-                <!-- Outer Black Numbers Circle (Missed Throws) -->
                 <circle class="segment" data-score="0" data-mult="1" data-id="Out" data-label="Out" cx="300" cy="300" r="285" fill="#000" />
                 
                 <g id="board-segments"></g>
                 
-                <!-- Center Targets (Outer Bull = 25, Inner Double Bull = 50) -->
                 <circle class="segment" data-score="25" data-mult="1" data-id="B25" data-label="B25" cx="300" cy="300" r="24" fill="var(--board-green)" />
                 <circle class="segment" data-score="25" data-mult="2" data-id="D50" data-label="D50" cx="300" cy="300" r="10" fill="var(--board-red)" />
                 
-                <!-- Wires -->
                 <circle class="wire" cx="300" cy="300" r="24" />
                 <circle class="wire" cx="300" cy="300" r="132" />
                 <circle class="wire" cx="300" cy="300" r="148" />
@@ -316,7 +308,6 @@
         </div>
     </div>
 
-    <!-- BOTTOM HUD -->
     <div class="hud-bottom">
         <div class="turn-status">
             <span id="turn-txt" style="color: var(--accent-p1);">PLAYER 1 THROWING</span>
@@ -346,9 +337,6 @@
         let currentTurnDarts = [];
         let matchHistory = [];
         let playerActiveInMatch = { p1: false, p2: false };
-
-        // Static configuration snapshot map tracking sequence paths at start of player turns
-        let currentTurnRouteSnapshot = [];
 
         const professionalCheckoutMap = {
             170: "T20, T20, Bull", 167: "T20, T19, Bull", 164: "T20, T18, Bull", 161: "T20, T17, Bull", 160: "T20, T20, D20",
@@ -448,21 +436,40 @@
             }
         }
 
-        // --- FIXED SEQUENTIAL OVERLAY FLASHER ENGINE ---
+        // --- NEW REAL-TIME INTELLIGENT DYNAMIC HIGHLIGHTER ENGINE ---
         function highlightNextTarget() {
-            // Clean old elements cleanly
+            // Scrub old highlights completely
             document.querySelectorAll('.target-highlight').forEach(el => el.classList.remove('target-highlight'));
 
             if (!playerActiveInMatch[activePlayer]) return; 
 
-            // Base decision matrix indexing off static snapshot generated at beginning of current turn
-            const targetIndex = currentTurnDarts.length;
-            if (targetIndex >= currentTurnRouteSnapshot.length || targetIndex >= 3) return;
+            const currentScore = scores[activePlayer];
+            const routeString = getCheckoutRoute(currentScore);
+            if (!routeString) return;
 
-            let nextTargetId = currentTurnRouteSnapshot[targetIndex];
+            const targets = routeString.split(',').map(s => s.trim());
+            
+            // Darts thrown *this* turn
+            const thrownInTurn = currentTurnDarts.length; 
+            if (thrownInTurn >= 3) return;
+
+            let nextTargetId = "";
+
+            // Dynamic Check: If the current route length is exactly equal to or less than 
+            // the remaining darts in hand, we always grab the absolute FIRST element of the new route.
+            // If it's a long route, we offset safely based on context.
+            const dartsRemainingInHand = 3 - thrownInTurn;
+
+            if (targets.length <= dartsRemainingInHand) {
+                nextTargetId = targets[0]; // Always follow the lead item of the optimized new path
+            } else {
+                // Fallback catch-all for extreme math variations
+                nextTargetId = targets[0];
+            }
+
             if (!nextTargetId) return;
 
-            // Normalize profile target designations
+            // Standardize target designations
             if (nextTargetId === "Bull") nextTargetId = "D50"; 
             if (nextTargetId === "D25") nextTargetId = "B25";
 
@@ -474,19 +481,6 @@
 
             if (targetSegment) {
                 targetSegment.classList.add('target-highlight');
-            }
-        }
-
-        // Generate or clear the frozen checkout layout array for the upcoming sequence
-        function syncTurnSnapshot() {
-            if (currentTurnDarts.length === 0) {
-                const currentScore = scores[activePlayer];
-                const routeString = getCheckoutRoute(currentScore);
-                if (routeString) {
-                    currentTurnRouteSnapshot = routeString.split(',').map(s => s.trim());
-                } else {
-                    currentTurnRouteSnapshot = [];
-                }
             }
         }
 
@@ -503,7 +497,6 @@
             activePlayer = 'p1';
             currentTurnDarts = [];
             matchHistory = [];
-            currentTurnRouteSnapshot = [];
             
             if (selectedRuleSet === 'dido') {
                 playerActiveInMatch = { p1: false, p2: false };
@@ -583,8 +576,7 @@
                 scores: { ...scores },
                 activePlayer,
                 currentTurnDarts: [...currentTurnDarts],
-                playerActiveInMatch: { ...playerActiveInMatch },
-                currentTurnRouteSnapshot: [...currentTurnRouteSnapshot]
+                playerActiveInMatch: { ...playerActiveInMatch }
             });
 
             const currentScore = scores[activePlayer];
@@ -627,7 +619,7 @@
                 if (requiresDoubleOut && multiplier !== 2) {
                     alert(`Bust! Must finish match on a Double.`);
                     currentTurnDarts.push("Bust");
-                    while(currentTurnDarts.length < 3) currentTurnDarts.push("-");
+                    while(currentRuleDarts.length < 3) currentTurnDarts.push("-");
                 } else {
                     scores[activePlayer] = 0;
                     currentTurnDarts.push(label);
@@ -652,7 +644,6 @@
                 setTimeout(() => {
                     activePlayer = (activePlayer === 'p1') ? 'p2' : 'p1';
                     currentTurnDarts = [];
-                    currentTurnRouteSnapshot = []; // Flush route on completion frame
                     updateUI();
                 }, 400);
             }
@@ -667,7 +658,6 @@
             activePlayer = prev.activePlayer;
             currentTurnDarts = prev.currentTurnDarts;
             playerActiveInMatch = prev.playerActiveInMatch;
-            currentTurnRouteSnapshot = prev.currentTurnRouteSnapshot;
             updateUI();
         }
 
@@ -680,9 +670,6 @@
             
             cardP1.classList.toggle('active', activePlayer === 'p1');
             cardP2.classList.toggle('active', activePlayer === 'p2');
-
-            // Freeze/calculate routes *before* drawing labels or checking highlights
-            syncTurnSnapshot();
 
             const routeP1 = getCheckoutRoute(scores.p1);
             const chkP1Element = document.getElementById('chk-p1');
@@ -734,7 +721,7 @@
             document.getElementById('d2').innerText = currentTurnDarts[1] || "-";
             document.getElementById('d3').innerText = currentTurnDarts[2] || "-";
 
-            // Recalculate flashing board highlights
+            // Recalculate board highlights instantly
             highlightNextTarget();
         }
 
