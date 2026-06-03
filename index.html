@@ -70,24 +70,46 @@
         .modal-card {
             background: var(--card-bg);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            width: 85%;
-            max-width: 360px;
+            width: 90%;
+            max-width: 400px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
             border-radius: 20px;
             padding: 24px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
         }
 
         .setup-step {
             display: none;
             text-align: center;
+            flex-direction: column;
+            height: 100%;
         }
         .setup-step.active {
-            display: block;
+            display: flex;
         }
 
         .modal-card h2 { margin: 0 0 6px 0; font-size: 1.4rem; font-weight: 800; }
         .modal-card p { color: #71717a; margin: 0 0 20px 0; font-size: 0.9rem; }
-        .mode-options { display: flex; flex-direction: column; gap: 10px; }
+        .mode-options { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 10px; 
+        }
+
+        #voice-options {
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 8px;
+            margin-bottom: 10px;
+        }
+
+        /* Custom scrollbar for voice list */
+        #voice-options::-webkit-scrollbar { width: 6px; }
+        #voice-options::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        #voice-options::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 10px; }
 
         .mode-btn {
             background: #27272a;
@@ -279,6 +301,15 @@
                 </div>
             </div>
 
+            <div class="setup-step" id="step-voice">
+                <h2>Select Referee Voice</h2>
+                <p>Choose a voice for score calls</p>
+                <div class="mode-options" id="voice-options">
+                    <!-- Voices will be populated here -->
+                </div>
+                <button class="mode-btn" style="margin-top: 15px; background: #3f3f46;" onclick="closeModal()">Back to Game</button>
+            </div>
+
         </div>
     </div>
 
@@ -332,7 +363,7 @@
             <button class="action-btn miss" onclick="handleMiss()">MISS</button>
             <button class="action-btn" onclick="undoLastDart()">UNDO</button>
             <button class="action-btn reset" onclick="triggerReset()">RESET</button>
-            <button class="action-btn" onclick="cycleVoice()">Voice</button>
+            <button class="action-btn" onclick="openVoiceMenu()">Voice</button>
         </div>
     </div>
 
@@ -425,15 +456,37 @@ function speak(text, isScoreCall = false, scoreValue = 0) {
     }
 }
 
-// Cycles through device engine voice arrays
-function cycleVoice() {
-    if ('speechSynthesis' in window) {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length === 0) return;
-        
-        selectedVoiceIndex = (selectedVoiceIndex + 1) % voices.length;
-        speak(`Voice profile ${voices[selectedVoiceIndex].name} active.`);
-    }
+// Opens the voice selection menu
+function openVoiceMenu() {
+    const voices = window.speechSynthesis.getVoices();
+    const container = document.getElementById('voice-options');
+    container.innerHTML = "";
+
+    voices.forEach((voice, index) => {
+        const btn = document.createElement('button');
+        btn.className = "mode-btn";
+        if (index === selectedVoiceIndex) {
+            btn.style.background = "var(--accent-p1)";
+        }
+        btn.innerText = `${voice.name} (${voice.lang})`;
+        btn.onclick = () => selectVoice(index);
+        container.appendChild(btn);
+    });
+
+    document.querySelectorAll('.setup-step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step-voice').classList.add('active');
+    document.getElementById('game-modal').classList.add('open');
+}
+
+function selectVoice(index) {
+    selectedVoiceIndex = index;
+    const voices = window.speechSynthesis.getVoices();
+    speak(`Voice profile ${voices[index].name} selected.`);
+    openVoiceMenu(); // Refresh to show active state
+}
+
+function closeModal() {
+    document.getElementById('game-modal').classList.remove('open');
 }
 
 // --- BOARD BUILDER ---
