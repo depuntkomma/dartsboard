@@ -130,7 +130,6 @@
         .player-box.active .name { color: #fff; }
         
         .score { font-size: 1.6rem; font-weight: 800; line-height: 1; margin: 2px 0; transition: font-size 0.2s; }
-        /* Shrink scale score dynamically when room is occupied by checkout text */
         .player-box.has-checkout .score { font-size: 1.35rem; }
 
         .status-badge { font-size: 0.6rem; font-weight: 700; color: #a1a1aa; text-transform: uppercase; line-height: 1; }
@@ -233,7 +232,7 @@
         .wire { stroke: #ffffff; stroke-width: 1.2; fill: none; pointer-events: none; }
         .board-text { fill: #ffffff; font-size: 24px; font-weight: 800; text-anchor: middle; dominant-baseline: middle; pointer-events: none; }
 
-        /* TARGET CHEKOUT FLICKERING CORONA HIGHLIGHTER EFFECT */
+        /* TARGET CHECKOUT FLICKERING CORONA HIGHLIGHTER EFFECT */
         @keyframes target-pulse {
             0% { stroke: #facc15; stroke-width: 2px; filter: drop-shadow(0 0 2px #facc15); }
             50% { stroke: #ffffff; stroke-width: 5px; filter: drop-shadow(0 0 10px #facc15); }
@@ -348,7 +347,9 @@
         let matchHistory = [];
         let playerActiveInMatch = { p1: false, p2: false };
 
-        // Standard Professional Outshot Table Dictionary Map
+        // Static configuration snapshot map tracking sequence paths at start of player turns
+        let currentTurnRouteSnapshot = [];
+
         const professionalCheckoutMap = {
             170: "T20, T20, Bull", 167: "T20, T19, Bull", 164: "T20, T18, Bull", 161: "T20, T17, Bull", 160: "T20, T20, D20",
             158: "T20, T20, D19", 157: "T20, T19, D20", 156: "T20, T20, D18", 155: "T20, T19, D19", 154: "T20, T18, D20",
@@ -408,7 +409,6 @@
                     return `M ${p1.x} ${p1.y} A ${rOut} ${rOut} 0 0 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rIn} ${rIn} 0 0 0 ${p4.x} ${p4.y} Z`;
                 };
 
-                // data-id maps directly to the formatting elements returned by checkout engines (e.g. D20, T20, 20)
                 htmlString += `<path class="segment" data-score="${num}" data-mult="2" data-id="D${num}" data-label="D${num}" d="${dPath(rDoubleIn, rDoubleOut)}" fill="${ringColor}"/>`;
                 htmlString += `<path class="segment" data-score="${num}" data-mult="1" data-id="${num}" data-label="${num}" d="${dPath(rTripleOut, rDoubleIn)}" fill="${mainColor}"/>`;
                 htmlString += `<path class="segment" data-score="${num}" data-mult="3" data-id="T${num}" data-label="T${num}" d="${dPath(rTripleIn, rTripleOut)}" fill="${ringColor}"/>`;
@@ -420,79 +420,73 @@
             container.innerHTML = htmlString;
         }
 
-        // --- CALC CHECKOUT SUGGESTIONS ---
         function getCheckoutRoute(score) {
             const isDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
-            
             if (isDoubleOut) {
                 return professionalCheckoutMap[score] || "";
             } else {
                 if (score <= 0 || score > 180) return "";
-                
                 let remaining = score;
                 let path = [];
-                
                 for (let i = 0; i < 3; i++) {
                     if (remaining === 0) break;
-                    
                     if (remaining > 60) {
-                        path.push("T20");
-                        remaining -= 60;
+                        path.push("T20"); remaining -= 60;
                     } else if (remaining === 50) {
-                        path.push("D50");
-                        remaining -= 50;
+                        path.push("D50"); remaining -= 50;
                     } else if (remaining > 20 && remaining % 3 === 0) {
-                        path.push(`T${remaining / 3}`);
-                        remaining = 0;
+                        path.push(`T${remaining / 3}`); remaining = 0;
                     } else if (remaining > 20 && remaining % 2 === 0 && (remaining / 2) <= 20) {
-                        path.push(`D${remaining / 2}`);
-                        remaining = 0;
+                        path.push(`D${remaining / 2}`); remaining = 0;
                     } else if (remaining <= 20) {
-                        path.push(`${remaining}`);
-                        remaining = 0;
+                        path.push(`${remaining}`); remaining = 0;
                     } else {
-                        path.push("20");
-                        remaining -= 20;
+                        path.push("20"); remaining -= 20;
                     }
                 }
                 return path.join(", ");
             }
         }
 
-        // --- GRAPHICS DIRECTIVE HIGHLIGHTING ENGINE ---
+        // --- FIXED SEQUENTIAL OVERLAY FLASHER ENGINE ---
         function highlightNextTarget() {
-            // First clear out all old highlight tags safely
+            // Clean old elements cleanly
             document.querySelectorAll('.target-highlight').forEach(el => el.classList.remove('target-highlight'));
 
-            const currentScore = scores[activePlayer];
-            if (!playerActiveInMatch[activePlayer]) return; // locked out by Double In rule currently
+            if (!playerActiveInMatch[activePlayer]) return; 
 
-            const routeString = getCheckoutRoute(currentScore);
-            if (!routeString) return;
-
-            // Split path into individual elements (e.g. ["T20", "T20", "D20"])
-            const targetArray = routeString.split(',').map(s => s.trim());
-            
-            // Look up index based on how many darts have already been thrown in the current active turn
+            // Base decision matrix indexing off static snapshot generated at beginning of current turn
             const targetIndex = currentTurnDarts.length;
-            if (targetIndex >= targetArray.length) return;
+            if (targetIndex >= currentTurnRouteSnapshot.length || targetIndex >= 3) return;
 
-            let nextTargetId = targetArray[targetIndex];
+            let nextTargetId = currentTurnRouteSnapshot[targetIndex];
+            if (!nextTargetId) return;
 
-            // Normalize names safely for SVG tags
+            // Normalize profile target designations
             if (nextTargetId === "Bull") nextTargetId = "D50"; 
             if (nextTargetId === "D25") nextTargetId = "B25";
 
-            // Find matching data-id values inside our board segments
             let targetSegment = document.querySelector(`[data-id="${nextTargetId}"]`);
             
-            // Fallback strategy for single numbers (can hit outer or inner single profile layout)
             if (!targetSegment && !isNaN(nextTargetId)) {
                 targetSegment = document.querySelector(`[data-id="${nextTargetId}-inner"]`);
             }
 
             if (targetSegment) {
                 targetSegment.classList.add('target-highlight');
+            }
+        }
+
+        // Generate or clear the frozen checkout layout array for the upcoming sequence
+        function syncTurnSnapshot() {
+            if (currentTurnDarts.length === 0) {
+                const currentScore = scores[activePlayer];
+                const routeString = getCheckoutRoute(currentScore);
+                if (routeString) {
+                    currentTurnRouteSnapshot = routeString.split(',').map(s => s.trim());
+                } else {
+                    currentTurnRouteSnapshot = [];
+                }
             }
         }
 
@@ -509,6 +503,7 @@
             activePlayer = 'p1';
             currentTurnDarts = [];
             matchHistory = [];
+            currentTurnRouteSnapshot = [];
             
             if (selectedRuleSet === 'dido') {
                 playerActiveInMatch = { p1: false, p2: false };
@@ -588,7 +583,8 @@
                 scores: { ...scores },
                 activePlayer,
                 currentTurnDarts: [...currentTurnDarts],
-                playerActiveInMatch: { ...playerActiveInMatch }
+                playerActiveInMatch: { ...playerActiveInMatch },
+                currentTurnRouteSnapshot: [...currentTurnRouteSnapshot]
             });
 
             const currentScore = scores[activePlayer];
@@ -600,7 +596,6 @@
                 return;
             }
             
-            // A. CHECK DOUBLE IN BOUNDARIES
             if (!playerActiveInMatch[activePlayer]) {
                 if (multiplier === 2) {
                     playerActiveInMatch[activePlayer] = true;
@@ -614,10 +609,8 @@
                 return;
             }
 
-            // B. TRACK REMAINING CALCS
             const prospectiveScore = currentScore - hitValue;
 
-            // C. CRASHES & COMPLETION ROUTINES
             if (prospectiveScore < 0 || prospectiveScore === 1) {
                 const isDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
                 if (prospectiveScore === 1 && !isDoubleOut) {
@@ -659,6 +652,7 @@
                 setTimeout(() => {
                     activePlayer = (activePlayer === 'p1') ? 'p2' : 'p1';
                     currentTurnDarts = [];
+                    currentTurnRouteSnapshot = []; // Flush route on completion frame
                     updateUI();
                 }, 400);
             }
@@ -673,6 +667,7 @@
             activePlayer = prev.activePlayer;
             currentTurnDarts = prev.currentTurnDarts;
             playerActiveInMatch = prev.playerActiveInMatch;
+            currentTurnRouteSnapshot = prev.currentTurnRouteSnapshot;
             updateUI();
         }
 
@@ -686,7 +681,9 @@
             cardP1.classList.toggle('active', activePlayer === 'p1');
             cardP2.classList.toggle('active', activePlayer === 'p2');
 
-            // Render Dynamic Outshot Labels & Apply Layout Adjustments
+            // Freeze/calculate routes *before* drawing labels or checking highlights
+            syncTurnSnapshot();
+
             const routeP1 = getCheckoutRoute(scores.p1);
             const chkP1Element = document.getElementById('chk-p1');
             if (routeP1 && playerActiveInMatch.p1) {
@@ -737,7 +734,7 @@
             document.getElementById('d2').innerText = currentTurnDarts[1] || "-";
             document.getElementById('d3').innerText = currentTurnDarts[2] || "-";
 
-            // Recalculate board overlay flashes
+            // Recalculate flashing board highlights
             highlightNextTarget();
         }
 
