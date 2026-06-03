@@ -336,454 +336,493 @@
     </div>
 
     <script>
-        const boardNumbers = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
-        
-        let currentModeValue = 501;
-        let selectedRuleSet = 'do'; 
-        let scores = { p1: 501, p2: 501 };
-        let activePlayer = 'p1';
-        let currentTurnDarts = [];
-        let currentTurnValues = []; // Tracking numerical score values for the voice caller calculations
-        let matchHistory = [];
-        let playerActiveInMatch = { p1: false, p2: false };
+       // --- STATE MANAGEMENT ---
+const boardNumbers = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
 
-        const professionalCheckoutMap = {
-            170: "T20, T20, Bull", 167: "T20, T19, Bull", 164: "T20, T18, Bull", 161: "T20, T17, Bull", 160: "T20, T20, D20",
-            158: "T20, T20, D19", 157: "T20, T19, D20", 156: "T20, T20, D18", 155: "T20, T19, D19", 154: "T20, T18, D20",
-            153: "T20, T19, D18", 152: "T20, T20, D16", 151: "T20, T17, D20", 150: "T20, T18, D18", 149: "T20, T19, D16",
-            148: "T20, T16, D20", 147: "T20, T17, D18", 146: "T20, T18, D16", 145: "T20, T15, D20", 144: "T20, T20, D12",
-            143: "T20, T17, D16", 142: "T20, T14, D20", 141: "T20, T15, D18", 140: "T20, T16, D16", 139: "T19, T14, D20",
-            138: "T20, T18, D12", 137: "T19, T16, D16", 136: "T20, T20, D8",  135: "T20, T15, D16", 134: "T20, T14, D16",
-            133: "T20, T19, D8",  132: "T20, T16, D12", 131: "T20, T13, D16", 130: "T20, T18, D8",  129: "T19, T16, D12",
-            128: "T18, T14, D16", 127: "T20, T17, D8",  126: "T19, T19, D6",  125: "T20, T19, D4",  124: "T20, T16, D8",
-            123: "T19, T16, D8",  122: "T18, T18, D7",  121: "T20, T11, D14", 120: "T20, 20, D20",   119: "T19, 12, D25",
-            118: "T20, 18, D20",  117: "T20, 17, D20",  116: "T20, 16, D20",  115: "T20, 15, D20",  114: "T20, 14, D20",
-            113: "T19, 16, D25",  112: "T20, 12, D20",  111: "T20, 11, D20",  110: "T20, 10, D20",  109: "T19, 12, D20",
-            108: "T20, 8, D20",   107: "T19, 10, D20",  106: "T20, 6, D20",   105: "T19, 8, D20",   104: "T20, 4, D20",
-            103: "T19, 6, D20",   102: "T20, 2, D20",   101: "T17, 10, D20",  100: "T20, D20",      99: "T19, D22",
-            98: "T20, D19",       97: "T19, D20",       96: "T20, D18",       95: "T19, D19",       94: "T18, D20",
-            93: "T19, D18",       92: "T20, D16",       91: "T17, D20",       90: "T20, D15",       89: "T19, D16",
-            88: "T16, D20",       87: "T17, D18",       86: "T18, D16",       85: "T15, D20",       84: "T20, D12",
-            83: "T17, D16",       82: "T14, D20",       81: "T15, D18",       80: "T20, D10",       79: "T13, D20",
-            78: "T18, D12",       77: "T15, D16",       76: "T20, D8",        75: "T17, D12",       74: "T14, D16",
-            73: "T19, D8",        72: "T16, D12",       71: "T13, D16",       70: "T18, D8",        69: "T15, D12",
-            68: "T20, D4",        67: "T17, D8",        66: "T14, D12",       65: "T15, D10",       64: "T16, D8",
-            63: "T13, D10",       62: "T10, D16",       61: "T15, D8",        60: "20, D20",        59: "19, D20",
-            58: "18, D20",        57: "17, D20",        56: "16, D20",        55: "15, D20",        54: "14, D20",
-            53: "13, D20",        52: "12, D20",        51: "11, D20",        50: "10, D20",        49: "9, D20",
-            48: "8, D20",         47: "7, D20",         46: "6, D20",         45: "5, D20",         44: "4, D20",
-            43: "3, D20",         42: "2, D20",         41: "1, D20",         40: "D20",            38: "D19",
-            36: "D18",            34: "D17",            32: "D16",            30: "D15",            28: "D14",
-            26: "D13",            24: "D12",            22: "D11",            20: "D10",            18: "D9",
-            16: "D8",             14: "D7",             12: "D6",             10: "D5",             8: "D4",
-            6: "D3",              4: "D2",              2: "D1"
+let currentModeValue = 501;
+let selectedRuleSet = 'do'; 
+let scores = { p1: 501, p2: 501 };
+let turnStartScore = 501; // Fix: Tracks score baseline prior to current 3-dart turn
+let activePlayer = 'p1';
+let currentTurnDarts = [];
+let currentTurnValues = []; 
+let matchHistory = [];
+let playerActiveInMatch = { p1: false, p2: false };
+let selectedVoiceIndex = 0; // Tracks custom native voice selection
+
+const professionalCheckoutMap = {
+    170: "T20, T20, Bull", 167: "T20, T19, Bull", 164: "T20, T18, Bull", 161: "T20, T17, Bull", 160: "T20, T20, D20",
+    158: "T20, T20, D19", 157: "T20, T19, D20", 156: "T20, T20, D18", 155: "T20, T19, D19", 154: "T20, T18, D20",
+    153: "T20, T19, D18", 152: "T20, T20, D16", 151: "T20, T17, D20", 150: "T20, T18, D18", 149: "T20, T19, D16",
+    148: "T20, T16, D20", 147: "T20, T17, D18", 146: "T20, T18, D16", 145: "T20, T15, D20", 144: "T20, T20, D12",
+    143: "T20, T17, D16", 142: "T20, T14, D20", 141: "T20, T15, D18", 140: "T20, T16, D16", 139: "T19, T14, D20",
+    138: "T20, T18, D12", 137: "T19, T16, D16", 136: "T20, T20, D8",  135: "T20, T15, D16", 134: "T20, T14, D16",
+    133: "T20, T19, D8",  132: "T20, T16, D12", 131: "T20, T13, D16", 130: "T20, T18, D8",  129: "T19, T16, D12",
+    128: "T18, T14, D16", 127: "T20, T17, D8",  126: "T19, T19, D6",  125: "T20, T19, D4",  124: "T20, T16, D8",
+    123: "T19, T16, D8",  122: "T18, T18, D7",  121: "T20, T11, D14", 120: "T20, 20, D20",   119: "T19, 12, D25",
+    118: "T20, 18, D20",  117: "T20, 17, D20",  116: "T20, 16, D20",  115: "T20, 15, D20",  114: "T20, 14, D20",
+    113: "T19, 16, D25",  112: "T20, 12, D20",  111: "T20, 11, D20",  110: "T20, 10, D20",  109: "T19, 12, D20",
+    108: "T20, 8, D20",   107: "T19, 10, D20",  106: "T20, 6, D20",   105: "T19, 8, D20",   104: "T20, 4, D20",
+    103: "T19, 6, D20",   102: "T20, 2, D20",   101: "T17, 10, D20",  100: "T20, D20",      99: "T19, D22",
+    98: "T20, D19",       97: "T19, D20",       96: "T20, D18",       95: "T19, D19",       94: "T18, D20",
+    93: "T19, D18",       92: "T20, D16",       91: "T17, D20",       90: "T20, D15",       89: "T19, D16",
+    88: "T16, D20",       87: "T17, D18",       86: "T18, D16",       85: "T15, D20",       84: "T20, D12",
+    83: "T17, D16",       82: "T14, D20",       81: "T15, D18",       80: "T20, D10",       79: "T13, D20",
+    78: "T18, D12",       77: "T15, D16",       76: "T20, D8",        75: "T17, D12",       74: "T14, D16",
+    73: "T19, D8",        72: "T16, D12",       71: "T13, D16",       70: "T18, D8",        69: "T15, D12",
+    68: "T20, D4",        67: "T17, D8",        66: "T14, D12",       65: "T15, D10",       64: "T16, D8",
+    63: "T13, D10",       62: "T10, D16",       61: "T15, D8",        60: "20, D20",        59: "19, D20",
+    58: "18, D20",        57: "17, D20",        56: "16, D20",        55: "15, D20",        54: "14, D20",
+    53: "13, D20",        52: "12, D20",        51: "11, D20",        50: "10, D20",        49: "9, D20",
+    48: "8, D20",         47: "7, D20",         46: "6, D20",         45: "5, D20",         44: "4, D20",
+    43: "3, D20",         42: "2, D20",         41: "1, D20",         40: "D20",            38: "D19",
+    36: "D18",            34: "D17",            32: "D16",            30: "D15",            28: "D14",
+    26: "D13",            24: "D12",            22: "D11",            20: "D10",            18: "D9",
+    16: "D8",             14: "D7",             12: "D6",             10: "D5",             8: "D4",
+    6: "D3",              4: "D2",              2: "D1"
+};
+
+// --- AUDIO & EXPRESSIVE INTONATION ENGINE ---
+function speak(text, isScoreCall = false, scoreValue = 0) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Abort previously active voices immediately
+        
+        let processedText = text;
+        let pitch = 0.95; 
+        let rate = 1.05;
+
+        // Custom string formatting patterns simulating referee audio styles
+        if (isScoreCall) {
+            if (scoreValue === 180) {
+                processedText = "ONE HUNDRED... AND... EIIIIGHTY!";
+                pitch = 0.85; 
+                rate = 0.90;  
+            } else if (scoreValue >= 100) {
+                let remainder = scoreValue - 100;
+                processedText = `ONE HUNDRED... and ${remainder === 0 ? "OOH" : remainder}!`;
+                pitch = 0.90;
+                rate = 0.95;
+            } else if (scoreValue >= 60) {
+                processedText = `${scoreValue}!`;
+                pitch = 1.0;
+                rate = 1.1; 
+            } else if (scoreValue === 0) {
+                processedText = "No score.";
+                pitch = 0.80; 
+                rate = 1.0;
+            }
+        }
+
+        const utterance = new SpeechSynthesisUtterance(processedText);
+        utterance.pitch = pitch;
+        utterance.rate = rate;
+
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0 && voices[selectedVoiceIndex]) {
+            utterance.voice = voices[selectedVoiceIndex];
+        }
+
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+// Cycles through device engine voice arrays
+function cycleVoice() {
+    if ('speechSynthesis' in window) {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length === 0) return;
+        
+        selectedVoiceIndex = (selectedVoiceIndex + 1) % voices.length;
+        speak(`Voice profile ${voices[selectedVoiceIndex].name} active.`);
+    }
+}
+
+// --- BOARD BUILDER ---
+function buildBoard() {
+    const container = document.getElementById('board-segments');
+    let htmlString = "";
+    const cx = 300, cy = 300;
+    const rDoubleOut = 230, rDoubleIn = 214, rTripleOut = 148, rTripleIn = 132;
+    const anglePerSlice = 360 / 20;
+
+    boardNumbers.forEach((num, index) => {
+        const startAngle = (index * anglePerSlice) - 90 - (anglePerSlice / 2);
+        const endAngle = startAngle + anglePerSlice;
+        const isEven = index % 2 === 0;
+        const mainColor = isEven ? "var(--board-black)" : "var(--board-beige)";
+        const ringColor = isEven ? "var(--board-red)" : "var(--board-green)";
+
+        const polarToCartesian = (r, angle) => {
+            const rad = (angle * Math.PI) / 180.0;
+            return { x: cx + (r * Math.cos(rad)), y: cy + (r * Math.sin(rad)) };
         };
 
-        // --- NATIVE VOICE CALLER ENGINE ---
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                // Instantly cut off any previous announcement to keep tracking punchy
-                window.speechSynthesis.cancel();
-                
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.rate = 1.05; // Marginally faster rate for an authoritative tournament pacing
-                utterance.pitch = 0.95; // Slightly lower pitch for depth
-                
-                // Optional lookup to grab a clean English accent profile if available
-                const voices = window.speechSynthesis.getVoices();
-                const engVoice = voices.find(v => v.lang.startsWith('en-GB') || v.lang.startsWith('en-US'));
-                if (engVoice) utterance.voice = engVoice;
+        const dPath = (rIn, rOut) => {
+            const p1 = polarToCartesian(rOut, startAngle);
+            const p2 = polarToCartesian(rOut, endAngle);
+            const p3 = polarToCartesian(rIn, endAngle);
+            const p4 = polarToCartesian(rIn, startAngle);
+            return `M ${p1.x} ${p1.y} A ${rOut} ${rOut} 0 0 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rIn} ${rIn} 0 0 0 ${p4.x} ${p4.y} Z`;
+        };
 
-                window.speechSynthesis.speak(utterance);
-            }
-        }
+        htmlString += `<path class="segment" data-score="${num}" data-mult="2" data-id="D${num}" data-label="D${num}" d="${dPath(rDoubleIn, rDoubleOut)}" fill="${ringColor}"/>`;
+        htmlString += `<path class="segment" data-score="${num}" data-mult="1" data-id="${num}" data-label="${num}" d="${dPath(rTripleOut, rDoubleIn)}" fill="${mainColor}"/>`;
+        htmlString += `<path class="segment" data-score="${num}" data-mult="3" data-id="T${num}" data-label="T${num}" d="${dPath(rTripleIn, rTripleOut)}" fill="${ringColor}"/>`;
+        htmlString += `<path class="segment" data-score="${num}" data-mult="1" data-id="${num}-inner" data-label="${num}" d="${dPath(24, rTripleIn)}" fill="${mainColor}"/>`;
 
-        function buildBoard() {
-            const container = document.getElementById('board-segments');
-            let htmlString = "";
-            const cx = 300, cy = 300;
-            const rDoubleOut = 230, rDoubleIn = 214, rTripleOut = 148, rTripleIn = 132;
-            const anglePerSlice = 360 / 20;
+        const textPos = polarToCartesian(258, startAngle + (anglePerSlice / 2));
+        htmlString += `<text x="${textPos.x}" y="${textPos.y}" class="board-text">${num}</text>`;
+    });
+    container.innerHTML = htmlString;
+}
 
-            boardNumbers.forEach((num, index) => {
-                const startAngle = (index * anglePerSlice) - 90 - (anglePerSlice / 2);
-                const endAngle = startAngle + anglePerSlice;
-                const isEven = index % 2 === 0;
-                const mainColor = isEven ? "var(--board-black)" : "var(--board-beige)";
-                const ringColor = isEven ? "var(--board-red)" : "var(--board-green)";
-
-                const polarToCartesian = (r, angle) => {
-                    const rad = (angle * Math.PI) / 180.0;
-                    return { x: cx + (r * Math.cos(rad)), y: cy + (r * Math.sin(rad)) };
-                };
-
-                const dPath = (rIn, rOut) => {
-                    const p1 = polarToCartesian(rOut, startAngle);
-                    const p2 = polarToCartesian(rOut, endAngle);
-                    const p3 = polarToCartesian(rIn, endAngle);
-                    const p4 = polarToCartesian(rIn, startAngle);
-                    return `M ${p1.x} ${p1.y} A ${rOut} ${rOut} 0 0 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rIn} ${rIn} 0 0 0 ${p4.x} ${p4.y} Z`;
-                };
-
-                htmlString += `<path class="segment" data-score="${num}" data-mult="2" data-id="D${num}" data-label="D${num}" d="${dPath(rDoubleIn, rDoubleOut)}" fill="${ringColor}"/>`;
-                htmlString += `<path class="segment" data-score="${num}" data-mult="1" data-id="${num}" data-label="${num}" d="${dPath(rTripleOut, rDoubleIn)}" fill="${mainColor}"/>`;
-                htmlString += `<path class="segment" data-score="${num}" data-mult="3" data-id="T${num}" data-label="T${num}" d="${dPath(rTripleIn, rTripleOut)}" fill="${ringColor}"/>`;
-                htmlString += `<path class="segment" data-score="${num}" data-mult="1" data-id="${num}-inner" data-label="${num}" d="${dPath(24, rTripleIn)}" fill="${mainColor}"/>`;
-
-                const textPos = polarToCartesian(258, startAngle + (anglePerSlice / 2));
-                htmlString += `<text x="${textPos.x}" y="${textPos.y}" class="board-text">${num}</text>`;
-            });
-            container.innerHTML = htmlString;
-        }
-
-        function getCheckoutRoute(score) {
-            const isDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
-            if (isDoubleOut) {
-                return professionalCheckoutMap[score] || "";
+// --- CHECKOUT LOGIC ---
+function getCheckoutRoute(score) {
+    const isDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
+    if (isDoubleOut) {
+        return professionalCheckoutMap[score] || "";
+    } else {
+        if (score <= 0 || score > 180) return "";
+        let remaining = score;
+        let path = [];
+        for (let i = 0; i < 3; i++) {
+            if (remaining === 0) break;
+            if (remaining > 60) {
+                path.push("T20"); remaining -= 60;
+            } else if (remaining === 50) {
+                path.push("D50"); remaining -= 50;
+            } else if (remaining > 20 && remaining % 3 === 0) {
+                path.push(`T${remaining / 3}`); remaining = 0;
+            } else if (remaining > 20 && remaining % 2 === 0 && (remaining / 2) <= 20) {
+                path.push(`D${remaining / 2}`); remaining = 0;
+            } else if (remaining <= 20) {
+                path.push(`${remaining}`); remaining = 0;
             } else {
-                if (score <= 0 || score > 180) return "";
-                let remaining = score;
-                let path = [];
-                for (let i = 0; i < 3; i++) {
-                    if (remaining === 0) break;
-                    if (remaining > 60) {
-                        path.push("T20"); remaining -= 60;
-                    } else if (remaining === 50) {
-                        path.push("D50"); remaining -= 50;
-                    } else if (remaining > 20 && remaining % 3 === 0) {
-                        path.push(`T${remaining / 3}`); remaining = 0;
-                    } else if (remaining > 20 && remaining % 2 === 0 && (remaining / 2) <= 20) {
-                        path.push(`D${remaining / 2}`); remaining = 0;
-                    } else if (remaining <= 20) {
-                        path.push(`${remaining}`); remaining = 0;
-                    } else {
-                        path.push("20"); remaining -= 20;
-                    }
-                }
-                return path.join(", ");
+                path.push("20"); remaining -= 20;
             }
         }
+        return path.join(", ");
+    }
+}
 
-        function highlightNextTarget() {
-            document.querySelectorAll('.target-highlight').forEach(el => el.classList.remove('target-highlight'));
+function highlightNextTarget() {
+    document.querySelectorAll('.target-highlight').forEach(el => el.classList.remove('target-highlight'));
 
-            if (!playerActiveInMatch[activePlayer]) return; 
+    if (!playerActiveInMatch[activePlayer]) return; 
 
-            const currentScore = scores[activePlayer];
-            const routeString = getCheckoutRoute(currentScore);
-            if (!routeString) return;
+    const currentScore = scores[activePlayer];
+    const routeString = getCheckoutRoute(currentScore);
+    if (!routeString) return;
 
-            const targets = routeString.split(',').map(s => s.trim());
-            if (currentTurnDarts.length >= 3) return;
+    const targets = routeString.split(',').map(s => s.trim());
+    if (currentTurnDarts.length >= 3) return;
 
-            let nextTargetId = targets[0];
-            if (!nextTargetId) return;
+    let nextTargetId = targets[0];
+    if (!nextTargetId) return;
 
-            if (nextTargetId === "Bull") nextTargetId = "D50"; 
-            if (nextTargetId === "D25") nextTargetId = "B25";
+    if (nextTargetId === "Bull") nextTargetId = "D50"; 
+    if (nextTargetId === "D25") nextTargetId = "B25";
 
-            let targetSegment = document.querySelector(`[data-id="${nextTargetId}"]`);
-            if (!targetSegment && !isNaN(nextTargetId)) {
-                targetSegment = document.querySelector(`[data-id="${nextTargetId}-inner"]`);
-            }
+    let targetSegment = document.querySelector(`[data-id="${nextTargetId}"]`);
+    if (!targetSegment && !isNaN(nextTargetId)) {
+        targetSegment = document.querySelector(`[data-id="${nextTargetId}-inner"]`);
+    }
 
-            if (targetSegment) {
-                targetSegment.classList.add('target-highlight');
-            }
+    if (targetSegment) {
+        targetSegment.classList.add('target-highlight');
+    }
+}
+
+// --- SCREEN NAVIGATION & CONFIG ---
+function goToStep2(targetScore) {
+    currentModeValue = targetScore;
+    document.getElementById('step-1').classList.remove('active');
+    document.getElementById('step-2').classList.add('active');
+    speak(""); 
+}
+
+function finalizeGameSetup(ruleSelection) {
+    selectedRuleSet = ruleSelection;
+    scores = { p1: currentModeValue, p2: currentModeValue };
+    turnStartScore = currentModeValue; // Baseline setup tracking
+    activePlayer = 'p1';
+    currentTurnDarts = [];
+    currentTurnValues = [];
+    matchHistory = [];
+    
+    if (selectedRuleSet === 'dido') {
+        playerActiveInMatch = { p1: false, p2: false };
+    } else {
+        playerActiveInMatch = { p1: true, p2: true };
+    }
+
+    scale = 1; posX = 0; posY = 0;
+    applyTransform();
+    updateUI();
+    
+    document.getElementById('game-modal').classList.remove('open');
+    speak("Game on.");
+}
+
+function triggerReset() {
+    document.getElementById('step-2').classList.remove('active');
+    document.getElementById('step-1').classList.add('active');
+    document.getElementById('game-modal').classList.add('open');
+}
+
+// --- VIEWPORT INTERACTION (PAN / ZOOM) ---
+const viewport = document.getElementById('viewport');
+const board = document.getElementById('board');
+let scale = 1, lastScale = 1;
+let posX = 0, posY = 0;
+let lastPosX = 0, lastPosY = 0;
+let isDragging = false;
+let startTouchDistance = 0;
+let hasDraggedSignificantly = false;
+
+viewport.addEventListener('touchstart', (e) => {
+    hasDraggedSignificantly = false;
+    if (e.touches.length === 1) {
+        isDragging = true;
+        lastPosX = e.touches[0].clientX - posX;
+        lastPosY = e.touches[0].clientY - posY;
+    } else if (e.touches.length === 2) {
+        isDragging = false;
+        startTouchDistance = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        lastScale = scale;
+    }
+}, { passive: true });
+
+viewport.addEventListener('touchmove', (e) => {
+    if (isDragging && e.touches.length === 1) {
+        hasDraggedSignificantly = true;
+        posX = e.touches[0].clientX - lastPosX;
+        posY = e.touches[0].clientY - lastPosY;
+        applyTransform();
+    } else if (e.touches.length === 2) {
+        hasDraggedSignificantly = true;
+        const currentDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+        );
+        scale = lastScale * (currentDist / startTouchDistance);
+        if (scale < 1) scale = 1;
+        if (scale > 3) scale = 3;
+        applyTransform();
+    }
+}, { passive: true });
+
+viewport.addEventListener('touchend', () => { isDragging = false; });
+
+function applyTransform() {
+    board.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
+}
+
+// --- CORE SCORING & GAME ENGINE ---
+function registerDart(score, multiplier, label) {
+    const hitValue = score * multiplier;
+    
+    // Push precise parameters to undo stack
+    matchHistory.push({
+        scores: { ...scores },
+        activePlayer,
+        currentTurnDarts: [...currentTurnDarts],
+        currentTurnValues: [...currentTurnValues],
+        playerActiveInMatch: { ...playerActiveInMatch },
+        turnStartScore: turnStartScore
+    });
+
+    const currentScore = scores[activePlayer];
+    
+    // Handle Misses
+    if (hitValue === 0) {
+        currentTurnDarts.push(label);
+        currentTurnValues.push(0);
+        speak("Miss!");
+        updateUI();
+        checkTurnLifecycle();
+        return;
+    }
+    
+    // Double In Check Validation
+    if (!playerActiveInMatch[activePlayer]) {
+        if (multiplier === 2) {
+            playerActiveInMatch[activePlayer] = true;
+            scores[activePlayer] = currentScore - hitValue;
+            currentTurnDarts.push(label);
+            currentTurnValues.push(hitValue);
+        } else {
+            currentTurnDarts.push("0 (No DI)");
+            currentTurnValues.push(0);
+            speak("Double in required.");
         }
+        updateUI();
+        checkTurnLifecycle();
+        return;
+    }
 
-        // --- SETUP MODAL ROUTINES ---
-        function goToStep2(targetScore) {
-            currentModeValue = targetScore;
-            document.getElementById('step-1').classList.remove('active');
-            document.getElementById('step-2').classList.add('active');
-            // Wake text-to-speech voice engine queue on early tap interaction (iOS policy requirement)
-            speak(""); 
+    const prospectiveScore = currentScore - hitValue;
+    const isDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
+
+    // CONDITIONAL VALIDATION LOOKUPS (BUST STRATEGIES)
+    if (prospectiveScore < 0 || (prospectiveScore === 1 && isDoubleOut) || (prospectiveScore === 0 && isDoubleOut && multiplier !== 2)) {
+        speak("Bust!");
+        
+        // BUG FIX: Immediately restore score to its clean turn state setting
+        scores[activePlayer] = turnStartScore;
+        
+        currentTurnDarts.push("Bust");
+        currentTurnValues.push(0); // Zero out points credited for entire leg sequence turn
+        
+        // Populate missing arrays to close out throwing turn cycles
+        while(currentTurnDarts.length < 3) {
+            currentTurnDarts.push("-");
+            currentTurnValues.push(0);
         }
+    } else if (prospectiveScore === 0) {
+        // Leg Check-out Completion
+        scores[activePlayer] = 0;
+        currentTurnDarts.push(label);
+        currentTurnValues.push(hitValue);
+        updateUI();
+        
+        const winnerName = activePlayer === 'p1' ? "Player 1" : "Player 2";
+        speak(`Game over! ${winnerName} wins the leg!`);
+        
+        setTimeout(() => {
+            alert(`Game Over! ${winnerName} Wins the Leg!`);
+            triggerReset();
+        }, 100);
+        return;
+    } else {
+        // Safe standard subtraction credit
+        scores[activePlayer] = prospectiveScore;
+        currentTurnDarts.push(label);
+        currentTurnValues.push(hitValue);
+    }
 
-        function finalizeGameSetup(ruleSelection) {
-            selectedRuleSet = ruleSelection;
-            scores = { p1: currentModeValue, p2: currentModeValue };
-            activePlayer = 'p1';
+    updateUI();
+    checkTurnLifecycle();
+}
+
+function checkTurnLifecycle() {
+    if (currentTurnDarts.length >= 3) {
+        const totalTurnScore = currentTurnValues.reduce((a, b) => a + b, 0);
+        
+        setTimeout(() => {
+            speak(`${totalTurnScore}`, true, totalTurnScore);
+        }, 150);
+
+        setTimeout(() => {
+            // Player handoff swap
+            activePlayer = (activePlayer === 'p1') ? 'p2' : 'p1';
             currentTurnDarts = [];
             currentTurnValues = [];
-            matchHistory = [];
             
-            if (selectedRuleSet === 'dido') {
-                playerActiveInMatch = { p1: false, p2: false };
-            } else {
-                playerActiveInMatch = { p1: true, p2: true };
-            }
-
-            scale = 1; posX = 0; posY = 0;
-            applyTransform();
+            // Sync stable baseline reference for incoming player's new turn
+            turnStartScore = scores[activePlayer]; 
+            
             updateUI();
-            
-            document.getElementById('game-modal').classList.remove('open');
-            speak("Game on.");
-        }
+        }, 1200);
+    }
+}
 
-        function triggerReset() {
-            document.getElementById('step-2').classList.remove('active');
-            document.getElementById('step-1').classList.add('active');
-            document.getElementById('game-modal').classList.add('open');
-        }
+function handleMiss() { registerDart(0, 1, "Miss"); }
 
-        // --- ISOLATED VIEWPORT CONTROL INTERFACES ---
-        const viewport = document.getElementById('viewport');
-        const board = document.getElementById('board');
-        let scale = 1, lastScale = 1;
-        let posX = 0, posY = 0;
-        let lastPosX = 0, lastPosY = 0;
-        let isDragging = false;
-        let startTouchDistance = 0;
-        let hasDraggedSignificantly = false;
+function undoLastDart() {
+    if (matchHistory.length === 0) return;
+    const prev = matchHistory.pop();
+    scores = prev.scores;
+    activePlayer = prev.activePlayer;
+    currentTurnDarts = prev.currentTurnDarts;
+    currentTurnValues = prev.currentTurnValues;
+    playerActiveInMatch = prev.playerActiveInMatch;
+    turnStartScore = prev.turnStartScore || scores[activePlayer]; 
+    updateUI();
+}
 
-        viewport.addEventListener('touchstart', (e) => {
-            hasDraggedSignificantly = false;
-            if (e.touches.length === 1) {
-                isDragging = true;
-                lastPosX = e.touches[0].clientX - posX;
-                lastPosY = e.touches[0].clientY - posY;
-            } else if (e.touches.length === 2) {
-                isDragging = false;
-                startTouchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                lastScale = scale;
-            }
-        }, { passive: true });
+// --- INTERFACE SYNC RENDERING ---
+function updateUI() {
+    const cardP1 = document.getElementById('card-p1');
+    const cardP2 = document.getElementById('card-p2');
 
-        viewport.addEventListener('touchmove', (e) => {
-            if (isDragging && e.touches.length === 1) {
-                hasDraggedSignificantly = true;
-                posX = e.touches[0].clientX - lastPosX;
-                posY = e.touches[0].clientY - lastPosY;
-                applyTransform();
-            } else if (e.touches.length === 2) {
-                hasDraggedSignificantly = true;
-                const currentDist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                scale = lastScale * (currentDist / startTouchDistance);
-                if (scale < 1) scale = 1;
-                if (scale > 3) scale = 3;
-                applyTransform();
-            }
-        }, { passive: true });
+    document.getElementById('score-p1').innerText = scores.p1;
+    document.getElementById('score-p2').innerText = scores.p2;
+    
+    cardP1.classList.toggle('active', activePlayer === 'p1');
+    cardP2.classList.toggle('active', activePlayer === 'p2');
 
-        viewport.addEventListener('touchend', () => { isDragging = false; });
+    const routeP1 = getCheckoutRoute(scores.p1);
+    const chkP1Element = document.getElementById('chk-p1');
+    if (routeP1 && playerActiveInMatch.p1) {
+        chkP1Element.innerText = routeP1;
+        chkP1Element.style.display = "block";
+        cardP1.classList.add('has-checkout');
+    } else {
+        chkP1Element.style.display = "none";
+        cardP1.classList.remove('has-checkout');
+    }
 
-        function applyTransform() {
-            board.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
-        }
+    const routeP2 = getCheckoutRoute(scores.p2);
+    const chkP2Element = document.getElementById('chk-p2');
+    if (routeP2 && playerActiveInMatch.p2) {
+        chkP2Element.innerText = routeP2;
+        chkP2Element.style.display = "block";
+        cardP2.classList.add('has-checkout');
+    } else {
+        chkP2Element.style.display = "none";
+        cardP2.classList.remove('has-checkout');
+    }
 
-        // --- GAME INTERACTION CALCULATORS ---
-        function registerDart(score, multiplier, label) {
-            const hitValue = score * multiplier;
-            
-            matchHistory.push({
-                scores: { ...scores },
-                activePlayer,
-                currentTurnDarts: [...currentTurnDarts],
-                currentTurnValues: [...currentTurnValues],
-                playerActiveInMatch: { ...playerActiveInMatch }
-            });
+    const ruleLabel = document.getElementById('rule-lbl');
+    if (selectedRuleSet === 'dido') ruleLabel.innerText = "RULES: DI / DO";
+    else if (selectedRuleSet === 'do') ruleLabel.innerText = "RULES: OPEN / DO";
+    else ruleLabel.innerText = "RULES: NO DOUBLES";
 
-            const currentScore = scores[activePlayer];
-            
-            if (hitValue === 0) {
-                currentTurnDarts.push(label);
-                currentTurnValues.push(0);
-                speak("Miss!");
-                updateUI();
-                checkTurnLifecycle();
-                return;
-            }
-            
-            if (!playerActiveInMatch[activePlayer]) {
-                if (multiplier === 2) {
-                    playerActiveInMatch[activePlayer] = true;
-                    scores[activePlayer] = currentScore - hitValue;
-                    currentTurnDarts.push(label);
-                    currentTurnValues.push(hitValue);
-                } else {
-                    currentTurnDarts.push("0 (No DI)");
-                    currentTurnValues.push(0);
-                    speak("Double in required.");
-                }
-                updateUI();
-                checkTurnLifecycle();
-                return;
-            }
+    const b1 = document.getElementById('status-p1');
+    const b2 = document.getElementById('status-p2');
+    if(selectedRuleSet === 'dido') {
+        b1.innerText = playerActiveInMatch.p1 ? "Active" : "Need Double In";
+        b2.innerText = playerActiveInMatch.p2 ? "Active" : "Need Double In";
+    } else {
+        b1.innerText = "Open Scoring";
+        b2.innerText = "Open Scoring";
+    }
 
-            const prospectiveScore = currentScore - hitValue;
+    const txt = document.getElementById('turn-txt');
+    if(activePlayer === 'p1') {
+        txt.innerText = "PLAYER 1 THROWING";
+        txt.style.color = "var(--accent-p1)";
+    } else {
+        txt.innerText = "PLAYER 2 THROWING";
+        txt.style.color = "var(--accent-p2)";
+    }
 
-            if (prospectiveScore < 0 || prospectiveScore === 1) {
-                const isDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
-                if (prospectiveScore === 1 && !isDoubleOut) {
-                    scores[activePlayer] = prospectiveScore;
-                    currentTurnDarts.push(label);
-                    currentTurnValues.push(hitValue);
-                } else {
-                    speak("Bust!");
-                    currentTurnDarts.push("Bust");
-                    currentTurnValues.push(0); // Zero value added toward turn total on bust
-                    while(currentTurnDarts.length < 3) {
-                        currentTurnDarts.push("-");
-                        currentTurnValues.push(0);
-                    }
-                }
-            } else if (prospectiveScore === 0) {
-                const requiresDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
-                
-                if (requiresDoubleOut && multiplier !== 2) {
-                    speak("Bust! Double out required.");
-                    currentTurnDarts.push("Bust");
-                    currentTurnValues.push(0);
-                    while(currentTurnDarts.length < 3) {
-                        currentTurnDarts.push("-");
-                        currentTurnValues.push(0);
-                    }
-                } else {
-                    scores[activePlayer] = 0;
-                    currentTurnDarts.push(label);
-                    currentTurnValues.push(hitValue);
-                    updateUI();
-                    
-                    const winnerName = activePlayer === 'p1' ? "Player 1" : "Player 2";
-                    speak(`Game over! ${winnerName} wins the leg!`);
-                    
-                    setTimeout(() => {
-                        alert(`Game Over! ${winnerName} Wins the Leg!`);
-                        triggerReset();
-                    }, 100);
-                    return;
-                }
-            } else {
-                scores[activePlayer] = prospectiveScore;
-                currentTurnDarts.push(label);
-                currentTurnValues.push(hitValue);
-            }
+    document.getElementById('d1').innerText = currentTurnDarts[0] || "-";
+    document.getElementById('d2').innerText = currentTurnDarts[1] || "-";
+    document.getElementById('d3').innerText = currentTurnDarts[2] || "-";
 
-            updateUI();
-            checkTurnLifecycle();
-        }
+    highlightNextTarget();
+}
 
-        function checkTurnLifecycle() {
-            if (currentTurnDarts.length >= 3) {
-                // Sum the turn total values
-                const totalTurnScore = currentTurnValues.reduce((a, b) => a + b, 0);
-                
-                // Call out total turn score via Voice Caller
-                setTimeout(() => {
-                    if (totalTurnScore === 180) {
-                        speak("ONE HUNDRED AND EIGHTY!");
-                    } else if (totalTurnScore === 0) {
-                        speak("No score.");
-                    } else {
-                        speak(`${totalTurnScore}`);
-                    }
-                }, 150);
+// --- INITIALIZATION ACTIONS ---
+buildBoard();
 
-                setTimeout(() => {
-                    activePlayer = (activePlayer === 'p1') ? 'p2' : 'p1';
-                    currentTurnDarts = [];
-                    currentTurnValues = [];
-                    updateUI();
-                }, 1000);
-            }
-        }
+document.getElementById('dartboard-svg').addEventListener('click', function(e) {
+    if (hasDraggedSignificantly) return; 
+    const seg = e.target.closest('.segment');
+    if (!seg) return;
+    registerDart(parseInt(seg.getAttribute('data-score')), parseInt(seg.getAttribute('data-mult')), seg.getAttribute('data-label'));
+});
 
-        function handleMiss() { registerDart(0, 1, "Miss"); }
-
-        function undoLastDart() {
-            if (matchHistory.length === 0) return;
-            const prev = matchHistory.pop();
-            scores = prev.scores;
-            activePlayer = prev.activePlayer;
-            currentTurnDarts = prev.currentTurnDarts;
-            currentTurnValues = prev.currentTurnValues;
-            playerActiveInMatch = prev.playerActiveInMatch;
-            updateUI();
-        }
-
-        function updateUI() {
-            const cardP1 = document.getElementById('card-p1');
-            const cardP2 = document.getElementById('card-p2');
-
-            document.getElementById('score-p1').innerText = scores.p1;
-            document.getElementById('score-p2').innerText = scores.p2;
-            
-            cardP1.classList.toggle('active', activePlayer === 'p1');
-            cardP2.classList.toggle('active', activePlayer === 'p2');
-
-            const routeP1 = getCheckoutRoute(scores.p1);
-            const chkP1Element = document.getElementById('chk-p1');
-            if (routeP1 && playerActiveInMatch.p1) {
-                chkP1Element.innerText = routeP1;
-                chkP1Element.style.display = "block";
-                cardP1.classList.add('has-checkout');
-            } else {
-                chkP1Element.style.display = "none";
-                cardP1.classList.remove('has-checkout');
-            }
-
-            const routeP2 = getCheckoutRoute(scores.p2);
-            const chkP2Element = document.getElementById('chk-p2');
-            if (routeP2 && playerActiveInMatch.p2) {
-                chkP2Element.innerText = routeP2;
-                chkP2Element.style.display = "block";
-                cardP2.classList.add('has-checkout');
-            } else {
-                chkP2Element.style.display = "none";
-                cardP2.classList.remove('has-checkout');
-            }
-
-            const ruleLabel = document.getElementById('rule-lbl');
-            if (selectedRuleSet === 'dido') ruleLabel.innerText = "RULES: DI / DO";
-            else if (selectedRuleSet === 'do') ruleLabel.innerText = "RULES: OPEN / DO";
-            else ruleLabel.innerText = "RULES: NO DOUBLES";
-
-            const b1 = document.getElementById('status-p1');
-            const b2 = document.getElementById('status-p2');
-            if(selectedRuleSet === 'dido') {
-                b1.innerText = playerActiveInMatch.p1 ? "Active" : "Need Double In";
-                b2.innerText = playerActiveInMatch.p2 ? "Active" : "Need Double In";
-            } else {
-                b1.innerText = "Open Scoring";
-                b2.innerText = "Open Scoring";
-            }
-
-            const txt = document.getElementById('turn-txt');
-            if(activePlayer === 'p1') {
-                txt.innerText = "PLAYER 1 THROWING";
-                txt.style.color = "var(--accent-p1)";
-            } else {
-                txt.innerText = "PLAYER 2 THROWING";
-                txt.style.color = "var(--accent-p2)";
-            }
-
-            document.getElementById('d1').innerText = currentTurnDarts[0] || "-";
-            document.getElementById('d2').innerText = currentTurnDarts[1] || "-";
-            document.getElementById('d3').innerText = currentTurnDarts[2] || "-";
-
-            highlightNextTarget();
-        }
-
-        buildBoard();
-
-        document.getElementById('dartboard-svg').addEventListener('click', function(e) {
-            if (hasDraggedSignificantly) return; 
-            const seg = e.target.closest('.segment');
-            if (!seg) return;
-            registerDart(parseInt(seg.getAttribute('data-score')), parseInt(seg.getAttribute('data-mult')), seg.getAttribute('data-label'));
-        });
-        
-        // Mobile web policy prefetch wake up trigger
-        window.speechSynthesis.getVoices();
+// Cache dynamic system engines to local environment
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
     </script>
 </body>
 </html>
