@@ -280,6 +280,25 @@
             pointer-events: none;
             border: 1px solid rgba(255,255,255,0.1);
             backdrop-filter: blur(4px);
+            text-align: center;
+        }
+
+        .voice-transcript {
+            position: fixed;
+            bottom: 200px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(67, 56, 202, 0.9);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            z-index: 1001;
+            display: none;
+            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            white-space: nowrap;
         }
 
         /* Board Elements */
@@ -387,6 +406,7 @@
         </div>
     </div>
 
+    <div class="voice-transcript" id="v-transcript"></div>
     <div class="voice-status" id="v-status">Listening...</div>
 
     <div class="hud-bottom">
@@ -442,7 +462,7 @@ if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
 
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript.toLowerCase().trim();
-        showVoiceStatus(`Heard: "${transcript}"`);
+        showVoiceTranscript(transcript);
         parseAndRegisterVoiceDart(transcript);
     };
 
@@ -501,6 +521,7 @@ function stopListening() {
     isListening = false;
     document.getElementById('mic-btn').classList.remove('active');
     hideVoiceStatus();
+    hideVoiceTranscript();
     try {
         recognition.stop();
     } catch(e) {}
@@ -514,6 +535,20 @@ function showVoiceStatus(text) {
 
 function hideVoiceStatus() {
     document.getElementById('v-status').style.display = "none";
+}
+
+function showVoiceTranscript(text) {
+    const el = document.getElementById('v-transcript');
+    el.innerText = `HEARD: "${text.toUpperCase()}"`;
+    el.style.display = "block";
+    
+    // Auto-hide transcript after a few seconds so it doesn't clutter
+    clearTimeout(window.transcriptTimeout);
+    window.transcriptTimeout = setTimeout(hideVoiceTranscript, 3000);
+}
+
+function hideVoiceTranscript() {
+    document.getElementById('v-transcript').style.display = "none";
 }
 
 function updateRecognitionLanguage() {
