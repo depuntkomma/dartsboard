@@ -574,9 +574,18 @@ function parseAndRegisterVoiceDart(text) {
         multiplier = 2;
     }
 
-    // Normalize common phonetic misinterpretations and number words
-    text = text.replace(/tree/g, "3").replace(/too|to/g, "2").replace(/won|one/g, "1");
-    text = text.replace(/één|eins/g, "1").replace(/twee|zwei/g, "2").replace(/drie|drei/g, "3");
+    // Comprehensive word-to-number mapping (English & Dutch)
+    const wordMap = {
+        // English
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+        "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
+        // Dutch
+        "één": 1, "een": 1, "twee": 2, "drie": 3, "vier": 4, "vijf": 5, "zes": 6, "zeven": 7, "acht": 8, "negen": 9, "tien": 10,
+        "elf": 11, "twaalf": 12, "dertien": 13, "veertien": 14, "vijftien": 15, "zestien": 16, "zeventien": 17, "achttien": 18, "negentien": 19, "twintig": 20
+    };
+
+    // Normalize common phonetic misinterpretations
+    text = text.replace(/tree/g, "3").replace(/too|to/g, "2").replace(/won/g, "1");
     
     // Extraction for Bulls
     if (text.includes("bullseye") || text.includes("inner bull") || text.includes("double bull") || text.includes("roos")) {
@@ -586,13 +595,21 @@ function parseAndRegisterVoiceDart(text) {
     } else if (text.includes("miss") || text.includes("out") || text.includes("mis")) {
         handleMiss(); return;
     } else {
+        // Check for numeric digits first
         const numMatch = text.match(/\d+/);
         if (numMatch) {
             score = parseInt(numMatch[0]);
-            if (score > 20 && score !== 25) {
-                showVoiceStatus("Invalid number (1-20 or Bull)");
-                return;
+        } else {
+            // Check for word-based numbers
+            for (const [word, val] of Object.entries(wordMap)) {
+                if (text.includes(word)) {
+                    score = val;
+                    break;
+                }
             }
+        }
+
+        if (score > 0 && (score <= 20 || score === 25)) {
             label = (multiplier === 3 ? "T" : multiplier === 2 ? "D" : "") + score;
         } else {
             showVoiceStatus("Could not understand score.");
