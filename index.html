@@ -255,6 +255,32 @@
         button.miss { background: #a16207; flex: 1.4; }
         button.miss:active { background: #ca8a04; }
         button.reset { background: #7f1d1d; max-width: 65px; font-size: 0.8rem; }
+        button.voice-rec { background: #1e1b4b; max-width: 65px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        button.voice-rec.active { background: #4338ca; animation: pulse-blue 1.5s infinite; }
+
+        @keyframes pulse-blue {
+            0% { box-shadow: 0 0 0 0 rgba(67, 56, 202, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(67, 56, 202, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(67, 56, 202, 0); }
+        }
+
+        .voice-status {
+            position: fixed;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.85);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 24px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            z-index: 1000;
+            display: none;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(4px);
+        }
 
         /* Board Elements */
         .segment { cursor: pointer; }
@@ -302,8 +328,22 @@
             </div>
 
             <div class="setup-step" id="step-voice">
-                <h2>Select Referee Voice</h2>
-                <p>Choose a voice for score calls</p>
+                <h2>Voice Settings</h2>
+                <p>Configure referee voice and language</p>
+                
+                <div style="margin-bottom: 20px; text-align: left;">
+                    <label style="font-size: 0.8rem; color: #71717a; font-weight: 700; margin-bottom: 8px; display: block;">RECOGNITION LANGUAGE</label>
+                    <select id="lang-select" class="mode-btn" style="width: 100%; appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right%201rem%20center; background-size: 0.65rem%20auto; padding-right: 2.5rem;" onchange="updateRecognitionLanguage()">
+                        <option value="en-US">English (US)</option>
+                        <option value="en-GB">English (UK)</option>
+                        <option value="nl-NL">Nederlands</option>
+                        <option value="de-DE">Deutsch</option>
+                        <option value="fr-FR">Français</option>
+                        <option value="es-ES">Español</option>
+                    </select>
+                </div>
+
+                <label style="font-size: 0.8rem; color: #71717a; font-weight: 700; margin-bottom: 8px; display: block; text-align: left;">REFEREE VOICE</label>
                 <div class="mode-options" id="voice-options">
                     <!-- Voices will be populated here -->
                 </div>
@@ -347,6 +387,8 @@
         </div>
     </div>
 
+    <div class="voice-status" id="v-status">Listening...</div>
+
     <div class="hud-bottom">
         <div class="turn-status">
             <span id="turn-txt" style="color: var(--accent-p1);">PLAYER 1 THROWING</span>
@@ -363,6 +405,7 @@
             <button class="action-btn miss" onclick="handleMiss()">MISS</button>
             <button class="action-btn" onclick="undoLastDart()">UNDO</button>
             <button class="action-btn reset" onclick="triggerReset()">RESET</button>
+            <button class="action-btn voice-rec" id="mic-btn" onclick="toggleVoiceRecognition()">🎙️</button>
             <button class="action-btn" onclick="openVoiceMenu()">Voice</button>
         </div>
     </div>
@@ -380,7 +423,138 @@ let currentTurnDarts = [];
 let currentTurnValues = []; 
 let matchHistory = [];
 let playerActiveInMatch = { p1: false, p2: false };
-let selectedVoiceIndex = 0; // Tracks custom native voice selection
+let selectedVoiceIndex = 0; 
+let isListening = false;
+let recognition;
+
+// --- SPEECH RECOGNITION SETUP ---
+if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.toLowerCase().trim();
+        showVoiceStatus(`Heard: "${transcript}"`);
+        parseAndRegisterVoiceDart(transcript);
+    };
+
+    recognition.onend = () => {
+        if (isListening) {
+            // Restart if we are still in listening mode and turn is not over
+            if (currentTurnDarts.length < 3) {
+                recognition.start();
+            } else {
+                stopListening();
+            }
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.error("Speech Recognition Error:", event.error);
+        if (event.error === 'not-allowed') {
+            alert("Microphone access denied. Please enable it in your browser settings.");
+            stopListening();
+        }
+    };
+}
+
+function toggleVoiceRecognition() {
+    if (!recognition) {
+        alert("Speech Recognition is not supported in this browser.");
+        return;
+    }
+
+    if (isListening) {
+        stopListening();
+    } else {
+        startListening();
+    }
+}
+
+function startListening() {
+    isListening = true;
+    document.getElementById('mic-btn').classList.add('active');
+    showVoiceStatus("Listening...");
+    try {
+        recognition.start();
+    } catch(e) {
+        console.warn("Recognition already started");
+    }
+}
+
+function stopListening() {
+    isListening = false;
+    document.getElementById('mic-btn').classList.remove('active');
+    hideVoiceStatus();
+    try {
+        recognition.stop();
+    } catch(e) {}
+}
+
+function showVoiceStatus(text) {
+    const status = document.getElementById('v-status');
+    status.innerText = text;
+    status.style.display = "block";
+}
+
+function hideVoiceStatus() {
+    document.getElementById('v-status').style.display = "none";
+}
+
+function updateRecognitionLanguage() {
+    if (recognition) {
+        const lang = document.getElementById('lang-select').value;
+        recognition.lang = lang;
+        console.log("Recognition language set to:", lang);
+    }
+}
+
+function parseAndRegisterVoiceDart(text) {
+    let multiplier = 1;
+    let score = 0;
+    let label = "";
+
+    // Multilingual support for multipliers
+    const triples = ["triple", "treble", "trippel", "dreifach"];
+    const doubles = ["double", "dubbel", "doppel"];
+    
+    if (triples.some(t => text.includes(t))) {
+        multiplier = 3;
+    } else if (doubles.some(d => text.includes(d))) {
+        multiplier = 2;
+    }
+
+    // Normalize common phonetic misinterpretations and number words
+    text = text.replace(/tree/g, "3").replace(/too|to/g, "2").replace(/won|one/g, "1");
+    text = text.replace(/één|eins/g, "1").replace(/twee|zwei/g, "2").replace(/drie|drei/g, "3");
+    
+    // Extraction for Bulls
+    if (text.includes("bullseye") || text.includes("inner bull") || text.includes("double bull") || text.includes("roos")) {
+        score = 25; multiplier = 2; label = "D50";
+    } else if (text.includes("outer bull") || text.includes("bull") || text.includes("buitenste roos")) {
+        score = 25; multiplier = 1; label = "B25";
+    } else if (text.includes("miss") || text.includes("out") || text.includes("mis")) {
+        handleMiss(); return;
+    } else {
+        const numMatch = text.match(/\d+/);
+        if (numMatch) {
+            score = parseInt(numMatch[0]);
+            if (score > 20 && score !== 25) {
+                showVoiceStatus("Invalid number (1-20 or Bull)");
+                return;
+            }
+            label = (multiplier === 3 ? "T" : multiplier === 2 ? "D" : "") + score;
+        } else {
+            showVoiceStatus("Could not understand score.");
+            return;
+        }
+    }
+
+    registerDart(score, multiplier, label);
+}
 
 const professionalCheckoutMap = {
     170: "T20, T20, Bull", 167: "T20, T19, Bull", 164: "T20, T18, Bull", 161: "T20, T17, Bull", 160: "T20, T20, D20",
