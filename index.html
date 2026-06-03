@@ -332,6 +332,7 @@
             <button class="action-btn miss" onclick="handleMiss()">MISS</button>
             <button class="action-btn" onclick="undoLastDart()">UNDO</button>
             <button class="action-btn reset" onclick="triggerReset()">RESET</button>
+            <button class="action-btn" onclick="cycleVoice()">Voice</button>
         </div>
     </div>
 
@@ -394,12 +395,10 @@ function speak(text, isScoreCall = false, scoreValue = 0) {
         // Custom string formatting patterns simulating referee audio styles
         if (isScoreCall) {
             if (scoreValue === 180) {
-                processedText = "ONE HUNDRED... AND... EIIIIGHTY!";
                 pitch = 0.85; 
                 rate = 0.90;  
             } else if (scoreValue >= 100) {
                 let remainder = scoreValue - 100;
-                processedText = `ONE HUNDRED... and ${remainder === 0 ? "OOH" : remainder}!`;
                 pitch = 0.90;
                 rate = 0.95;
             } else if (scoreValue >= 60) {
