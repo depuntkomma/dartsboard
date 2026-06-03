@@ -343,6 +343,7 @@
         let scores = { p1: 501, p2: 501 };
         let activePlayer = 'p1';
         let currentTurnDarts = [];
+        let currentTurnValues = []; // Tracking numerical score values for the voice caller calculations
         let matchHistory = [];
         let playerActiveInMatch = { p1: false, p2: false };
 
@@ -377,6 +378,25 @@
             16: "D8",             14: "D7",             12: "D6",             10: "D5",             8: "D4",
             6: "D3",              4: "D2",              2: "D1"
         };
+
+        // --- NATIVE VOICE CALLER ENGINE ---
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                // Instantly cut off any previous announcement to keep tracking punchy
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.05; // Marginally faster rate for an authoritative tournament pacing
+                utterance.pitch = 0.95; // Slightly lower pitch for depth
+                
+                // Optional lookup to grab a clean English accent profile if available
+                const voices = window.speechSynthesis.getVoices();
+                const engVoice = voices.find(v => v.lang.startsWith('en-GB') || v.lang.startsWith('en-US'));
+                if (engVoice) utterance.voice = engVoice;
+
+                window.speechSynthesis.speak(utterance);
+            }
+        }
 
         function buildBoard() {
             const container = document.getElementById('board-segments');
@@ -444,9 +464,7 @@
             }
         }
 
-        // --- FIXED DYNAMIC TARGET LOOKUP ENGINE ---
         function highlightNextTarget() {
-            // Scrub old highlights cleanly
             document.querySelectorAll('.target-highlight').forEach(el => el.classList.remove('target-highlight'));
 
             if (!playerActiveInMatch[activePlayer]) return; 
@@ -456,21 +474,15 @@
             if (!routeString) return;
 
             const targets = routeString.split(',').map(s => s.trim());
-            
-            // Check turn structure limit
             if (currentTurnDarts.length >= 3) return;
 
-            // FIX: Always focus the absolute FIRST target on the live optimized roadmap 
-            // regardless of whether they have 3, 2, or 1 dart left in their hand.
             let nextTargetId = targets[0];
             if (!nextTargetId) return;
 
-            // Standardize layout coordinates
             if (nextTargetId === "Bull") nextTargetId = "D50"; 
             if (nextTargetId === "D25") nextTargetId = "B25";
 
             let targetSegment = document.querySelector(`[data-id="${nextTargetId}"]`);
-            
             if (!targetSegment && !isNaN(nextTargetId)) {
                 targetSegment = document.querySelector(`[data-id="${nextTargetId}-inner"]`);
             }
@@ -485,6 +497,8 @@
             currentModeValue = targetScore;
             document.getElementById('step-1').classList.remove('active');
             document.getElementById('step-2').classList.add('active');
+            // Wake text-to-speech voice engine queue on early tap interaction (iOS policy requirement)
+            speak(""); 
         }
 
         function finalizeGameSetup(ruleSelection) {
@@ -492,6 +506,7 @@
             scores = { p1: currentModeValue, p2: currentModeValue };
             activePlayer = 'p1';
             currentTurnDarts = [];
+            currentTurnValues = [];
             matchHistory = [];
             
             if (selectedRuleSet === 'dido') {
@@ -505,6 +520,7 @@
             updateUI();
             
             document.getElementById('game-modal').classList.remove('open');
+            speak("Game on.");
         }
 
         function triggerReset() {
@@ -572,6 +588,7 @@
                 scores: { ...scores },
                 activePlayer,
                 currentTurnDarts: [...currentTurnDarts],
+                currentTurnValues: [...currentTurnValues],
                 playerActiveInMatch: { ...playerActiveInMatch }
             });
 
@@ -579,6 +596,8 @@
             
             if (hitValue === 0) {
                 currentTurnDarts.push(label);
+                currentTurnValues.push(0);
+                speak("Miss!");
                 updateUI();
                 checkTurnLifecycle();
                 return;
@@ -589,8 +608,11 @@
                     playerActiveInMatch[activePlayer] = true;
                     scores[activePlayer] = currentScore - hitValue;
                     currentTurnDarts.push(label);
+                    currentTurnValues.push(hitValue);
                 } else {
                     currentTurnDarts.push("0 (No DI)");
+                    currentTurnValues.push(0);
+                    speak("Double in required.");
                 }
                 updateUI();
                 checkTurnLifecycle();
@@ -604,24 +626,38 @@
                 if (prospectiveScore === 1 && !isDoubleOut) {
                     scores[activePlayer] = prospectiveScore;
                     currentTurnDarts.push(label);
+                    currentTurnValues.push(hitValue);
                 } else {
-                    alert(`Bust! Leaves invalid score.`);
+                    speak("Bust!");
                     currentTurnDarts.push("Bust");
-                    while(currentTurnDarts.length < 3) currentTurnDarts.push("-");
+                    currentTurnValues.push(0); // Zero value added toward turn total on bust
+                    while(currentTurnDarts.length < 3) {
+                        currentTurnDarts.push("-");
+                        currentTurnValues.push(0);
+                    }
                 }
             } else if (prospectiveScore === 0) {
                 const requiresDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
                 
                 if (requiresDoubleOut && multiplier !== 2) {
-                    alert(`Bust! Must finish match on a Double.`);
+                    speak("Bust! Double out required.");
                     currentTurnDarts.push("Bust");
-                    while(currentTurnDarts.length < 3) currentTurnDarts.push("-");
+                    currentTurnValues.push(0);
+                    while(currentTurnDarts.length < 3) {
+                        currentTurnDarts.push("-");
+                        currentTurnValues.push(0);
+                    }
                 } else {
                     scores[activePlayer] = 0;
                     currentTurnDarts.push(label);
+                    currentTurnValues.push(hitValue);
                     updateUI();
+                    
+                    const winnerName = activePlayer === 'p1' ? "Player 1" : "Player 2";
+                    speak(`Game over! ${winnerName} wins the leg!`);
+                    
                     setTimeout(() => {
-                        alert(`Game Over! ${activePlayer === 'p1' ? 'Player 1' : 'Player 2'} Wins the Leg!`);
+                        alert(`Game Over! ${winnerName} Wins the Leg!`);
                         triggerReset();
                     }, 100);
                     return;
@@ -629,6 +665,7 @@
             } else {
                 scores[activePlayer] = prospectiveScore;
                 currentTurnDarts.push(label);
+                currentTurnValues.push(hitValue);
             }
 
             updateUI();
@@ -637,11 +674,26 @@
 
         function checkTurnLifecycle() {
             if (currentTurnDarts.length >= 3) {
+                // Sum the turn total values
+                const totalTurnScore = currentTurnValues.reduce((a, b) => a + b, 0);
+                
+                // Call out total turn score via Voice Caller
+                setTimeout(() => {
+                    if (totalTurnScore === 180) {
+                        speak("ONE HUNDRED AND EIGHTY!");
+                    } else if (totalTurnScore === 0) {
+                        speak("No score.");
+                    } else {
+                        speak(`${totalTurnScore}`);
+                    }
+                }, 150);
+
                 setTimeout(() => {
                     activePlayer = (activePlayer === 'p1') ? 'p2' : 'p1';
                     currentTurnDarts = [];
+                    currentTurnValues = [];
                     updateUI();
-                }, 400);
+                }, 1000);
             }
         }
 
@@ -653,6 +705,7 @@
             scores = prev.scores;
             activePlayer = prev.activePlayer;
             currentTurnDarts = prev.currentTurnDarts;
+            currentTurnValues = prev.currentTurnValues;
             playerActiveInMatch = prev.playerActiveInMatch;
             updateUI();
         }
@@ -717,7 +770,6 @@
             document.getElementById('d2').innerText = currentTurnDarts[1] || "-";
             document.getElementById('d3').innerText = currentTurnDarts[2] || "-";
 
-            // Instantly render accurate board target highlights
             highlightNextTarget();
         }
 
@@ -729,6 +781,9 @@
             if (!seg) return;
             registerDart(parseInt(seg.getAttribute('data-score')), parseInt(seg.getAttribute('data-mult')), seg.getAttribute('data-label'));
         });
+        
+        // Mobile web policy prefetch wake up trigger
+        window.speechSynthesis.getVoices();
     </script>
 </body>
 </html>
