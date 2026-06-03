@@ -36,15 +36,15 @@
             position: fixed; 
         }
 
-        /* GAME SETUP OVERLAY / MODAL */
+        /* SEQUENTIAL SETUP WIZARD OVERLAY */
         .modal-overlay {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(10, 10, 12, 0.9);
-            backdrop-filter: blur(8px);
+            background: rgba(10, 10, 12, 0.92);
+            backdrop-filter: blur(10px);
             z-index: 100;
             display: flex;
             align-items: center;
@@ -66,42 +66,34 @@
             max-width: 360px;
             border-radius: 20px;
             padding: 24px;
-            text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
-        .modal-card h2 {
-            margin: 0 0 8px 0;
-            font-size: 1.4rem;
-            font-weight: 800;
+        /* Smooth CSS step toggles inside the modal */
+        .setup-step {
+            display: none;
+            text-align: center;
+        }
+        .setup-step.active {
+            display: block;
         }
 
-        .modal-card p {
-            color: #71717a;
-            margin: 0 0 20px 0;
-            font-size: 0.9rem;
-        }
-
-        .mode-options {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
+        .modal-card h2 { margin: 0 0 6px 0; font-size: 1.4rem; font-weight: 800; }
+        .modal-card p { color: #71717a; margin: 0 0 20px 0; font-size: 0.9rem; }
+        .mode-options { display: flex; flex-direction: column; gap: 10px; }
 
         .mode-btn {
             background: #27272a;
             color: white;
             border: none;
             padding: 16px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 700;
             border-radius: 12px;
             cursor: pointer;
-            transition: background 0.15s;
+            transition: background 0.15s, transform 0.1s;
         }
-        .mode-btn:active {
-            background: var(--accent-p1);
-        }
+        .mode-btn:active { background: var(--accent-p1); transform: scale(0.98); }
 
         /* FIXED TOP HUD */
         .hud-top {
@@ -135,6 +127,7 @@
         .name { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #71717a; }
         .player-box.active .name { color: #fff; }
         .score { font-size: 1.8rem; font-weight: 800; line-height: 1.1; }
+        .status-badge { font-size: 0.65rem; font-weight: 700; margin-top: 2px; color: #a1a1aa; }
 
         /* ISOLATED MIDDLE VIEWPORT */
         .board-viewport {
@@ -162,11 +155,7 @@
         }
         .board-container:active { cursor: grabbing; }
 
-        svg {
-            width: 100%;
-            height: auto;
-            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.7));
-        }
+        svg { width: 100%; height: auto; filter: drop-shadow(0 8px 24px rgba(0,0,0,0.7)); }
 
         /* FIXED BOTTOM HUD */
         .hud-bottom {
@@ -185,7 +174,8 @@
             border-top: 1px solid #27272a;
         }
 
-        .turn-status { font-weight: 800; font-size: 0.85rem; text-transform: uppercase; }
+        .turn-status { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; }
+        .rule-indicator { font-size: 0.75rem; color: #71717a; font-weight: 600; }
         .dart-slots { display: flex; gap: 8px; }
         
         .dart-slot {
@@ -217,7 +207,7 @@
         button.miss:active { background: #ca8a04; }
         button.reset { background: #7f1d1d; max-width: 65px; font-size: 0.8rem; }
 
-        /* Board Elements Layout */
+        /* Board Slices styling */
         .segment { cursor: pointer; }
         .segment:active { fill: #facc15 !important; }
         .wire { stroke: #ffffff; stroke-width: 1.2; fill: none; pointer-events: none; }
@@ -228,13 +218,27 @@
 
     <div class="modal-overlay open" id="game-modal">
         <div class="modal-card">
-            <h2>Select Game Mode</h2>
-            <p>Choose a target legs starting score</p>
-            <div class="mode-options">
-                <button class="mode-btn" onclick="selectGameMode(101)">101 Countdown</button>
-                <button class="mode-btn" onclick="selectGameMode(301)">301 Countdown</button>
-                <button class="mode-btn" onclick="selectGameMode(501)">501 Standard</button>
+            
+            <div class="setup-step active" id="step-1">
+                <h2>Select Game Mode</h2>
+                <p>Choose your leg target value</p>
+                <div class="mode-options">
+                    <button class="mode-btn" onclick="goToStep2(101)">101</button>
+                    <button class="mode-btn" onclick="goToStep2(301)">301</button>
+                    <button class="mode-btn" onclick="goToStep2(501)">501</button>
+                </div>
             </div>
+
+            <div class="setup-step" id="step-2">
+                <h2>Select Match Rules</h2>
+                <p>Choose entry and exit modifiers</p>
+                <div class="mode-options">
+                    <button class="mode-btn" onclick="finalizeGameSetup('dido')">Double In / Double Out</button>
+                    <button class="mode-btn" onclick="finalizeGameSetup('do')">Double Out Only</button>
+                    <button class="mode-btn" onclick="finalizeGameSetup('none')">No Doubles (Straight Open)</button>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -242,10 +246,12 @@
         <div class="player-box active p1" id="card-p1">
             <div class="name">Player 1</div>
             <div class="score" id="score-p1">501</div>
+            <div class="status-badge" id="status-p1">Not In</div>
         </div>
         <div class="player-box p2" id="card-p2">
             <div class="name">Player 2</div>
             <div class="score" id="score-p2">501</div>
+            <div class="status-badge" id="status-p2">Not In</div>
         </div>
     </div>
 
@@ -255,7 +261,7 @@
                 <circle cx="300" cy="300" r="285" fill="#000" />
                 <g id="board-segments"></g>
                 <circle class="segment" data-score="25" data-mult="1" data-label="B25" cx="300" cy="300" r="24" fill="var(--board-green)" />
-                <circle class="segment" data-score="50" data-mult="1" data-label="B50" cx="300" cy="300" r="10" fill="var(--board-red)" />
+                <circle class="segment" data-score="50" data-mult="2" data-label="D50" cx="300" cy="300" r="10" fill="var(--board-red)" />
                 <circle class="wire" cx="300" cy="300" r="24" />
                 <circle class="wire" cx="300" cy="300" r="132" />
                 <circle class="wire" cx="300" cy="300" r="148" />
@@ -268,6 +274,7 @@
     <div class="hud-bottom">
         <div class="turn-status">
             <span id="turn-txt" style="color: var(--accent-p1);">PLAYER 1 THROWING</span>
+            <span class="rule-indicator" id="rule-lbl">RULES: DO</span>
         </div>
         
         <div class="dart-slots">
@@ -286,14 +293,17 @@
     <script>
         const boardNumbers = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
         
-        // Game state engine parameters
-        let currentModeValue = 501; // Defaults to standard 501
+        // Game parameters Engine State 
+        let currentModeValue = 501;
+        let selectedRuleSet = 'do'; // 'dido', 'do', or 'none'
         let scores = { p1: 501, p2: 501 };
         let activePlayer = 'p1';
         let currentTurnDarts = [];
         let matchHistory = [];
+        
+        // Tracking whether individual players have cracked their "Double In" barrier yet
+        let playerActiveInMatch = { p1: false, p2: false };
 
-        // Dynamic board generation
         function buildBoard() {
             const container = document.getElementById('board-segments');
             let htmlString = "";
@@ -332,30 +342,45 @@
             container.innerHTML = htmlString;
         }
 
-        // --- GAME CONTROL INTERACTION MODAL FUNCTIONS ---
-        function selectGameMode(targetScore) {
+        // --- STEP WIZARD NAV MODULE ---
+        function goToStep2(targetScore) {
             currentModeValue = targetScore;
-            scores = { p1: targetScore, p2: targetScore };
+            
+            // Advance UI card visibility
+            document.getElementById('step-1').classList.remove('active');
+            document.getElementById('step-2').classList.add('active');
+        }
+
+        function finalizeGameSetup(ruleSelection) {
+            selectedRuleSet = ruleSelection;
+            scores = { p1: currentModeValue, p2: currentModeValue };
             activePlayer = 'p1';
             currentTurnDarts = [];
             matchHistory = [];
             
-            // Reset position mapping matrices
+            // Set up Double In status states
+            if (selectedRuleSet === 'dido') {
+                playerActiveInMatch = { p1: false, p2: false };
+            } else {
+                playerActiveInMatch = { p1: true, p2: true };
+            }
+
             scale = 1; posX = 0; posY = 0;
             applyTransform();
-            
             updateUI();
             
-            // Close the visual overlay smoothly
+            // Dismiss modal overlay interface completely
             document.getElementById('game-modal').classList.remove('open');
         }
 
         function triggerReset() {
-            // Re-open Selection panel overlay to give option configuration flexibility
+            // Re-render modal visibility from step 1
+            document.getElementById('step-2').classList.remove('active');
+            document.getElementById('step-1').classList.add('active');
             document.getElementById('game-modal').classList.add('open');
         }
 
-        // --- ISOLATED DRAG & PINCH-ZOOM ENGINE LOGIC ---
+        // --- MANUALLY OPTIMIZED DRAG & PINCH LOGIC ---
         const viewport = document.getElementById('viewport');
         const board = document.getElementById('board');
         let scale = 1, lastScale = 1;
@@ -406,35 +431,83 @@
             board.style.transform = `translate(${posX}px, ${posY}px) scale(${scale})`;
         }
 
-        // --- SCORING LAUNCH CONFIGURATION LOGIC ---
+        // --- DARTS ADVANCED RULE ENGINE LOGIC ---
         function registerDart(score, multiplier, label) {
             const hitValue = score * multiplier;
-            matchHistory.push({ scores: { ...scores }, activePlayer, currentTurnDarts: [...currentTurnDarts] });
+            
+            // Snapshot current operational states for Undos
+            matchHistory.push({
+                scores: { ...scores },
+                activePlayer,
+                currentTurnDarts: [...currentTurnDarts],
+                playerActiveInMatch: { ...playerActiveInMatch }
+            });
 
             const currentScore = scores[activePlayer];
+            
+            // A. CHECK DOUBLE IN STATUS RULE CONTROLS
+            if (!playerActiveInMatch[activePlayer]) {
+                if (multiplier === 2) {
+                    // Success! Player cracked the entry lock with a Double
+                    playerActiveInMatch[activePlayer] = true;
+                    scores[activePlayer] = currentScore - hitValue;
+                    currentTurnDarts.push(label);
+                } else {
+                    // Throw bounced away / ignored because it wasn't a double
+                    currentTurnDarts.push("0 (No DI)");
+                }
+                updateUI();
+                checkTurnLifecycle();
+                return;
+            }
+
+            // B. STANDARD SUBTRACTION COMPLIANCE RUNS
             const prospectiveScore = currentScore - hitValue;
 
+            // C. CHECK EXIT (WIN OR BUST) CONDITIONS
             if (prospectiveScore < 0 || prospectiveScore === 1) {
-                alert(`Bust! Left with ${currentScore}.`);
-                currentTurnDarts.push("Bust");
-                while(currentTurnDarts.length < 3) currentTurnDarts.push("-");
+                // Leg bust condition (You can't leave 1 point if Double Out is on)
+                const isDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
+                if (prospectiveScore === 1 && !isDoubleOut) {
+                    // Safe if "No Doubles" is chosen
+                    scores[activePlayer] = prospectiveScore;
+                    currentTurnDarts.push(label);
+                } else {
+                    alert(`Bust! Leaves invalid score.`);
+                    currentTurnDarts.push("Bust");
+                    while(currentTurnDarts.length < 3) currentTurnDarts.push("-");
+                }
             } else if (prospectiveScore === 0) {
-                // Win checking condition
-                scores[activePlayer] = 0;
-                currentTurnDarts.push(label);
-                updateUI();
-                setTimeout(() => {
-                    alert(`Game Over! ${activePlayer === 'p1' ? 'Player 1' : 'Player 2'} Wins!`);
-                    triggerReset();
-                }, 100);
-                return;
+                // Zero hit! Check if it matches exit rules
+                const requiresDoubleOut = (selectedRuleSet === 'dido' || selectedRuleSet === 'do');
+                
+                if (requiresDoubleOut && multiplier !== 2) {
+                    // BUST! Hit zero but didn't finish on a Double segment
+                    alert(`Bust! Must finish match on a Double.`);
+                    currentTurnDarts.push("Bust");
+                    while(currentTurnDarts.length < 3) currentTurnDarts.push("-");
+                } else {
+                    // Legal Win!
+                    scores[activePlayer] = 0;
+                    currentTurnDarts.push(label);
+                    updateUI();
+                    setTimeout(() => {
+                        alert(`Game Over! ${activePlayer === 'p1' ? 'Player 1' : 'Player 2'} Wins the Leg!`);
+                        triggerReset();
+                    }, 100);
+                    return;
+                }
             } else {
+                // Clean standard dart registration score execution
                 scores[activePlayer] = prospectiveScore;
                 currentTurnDarts.push(label);
             }
 
             updateUI();
+            checkTurnLifecycle();
+        }
 
+        function checkTurnLifecycle() {
             if (currentTurnDarts.length >= 3) {
                 setTimeout(() => {
                     activePlayer = (activePlayer === 'p1') ? 'p2' : 'p1';
@@ -452,6 +525,7 @@
             scores = prev.scores;
             activePlayer = prev.activePlayer;
             currentTurnDarts = prev.currentTurnDarts;
+            playerActiveInMatch = prev.playerActiveInMatch;
             updateUI();
         }
 
@@ -460,6 +534,23 @@
             document.getElementById('score-p2').innerText = scores.p2;
             document.getElementById('card-p1').classList.toggle('active', activePlayer === 'p1');
             document.getElementById('card-p2').classList.toggle('active', activePlayer === 'p2');
+
+            // Set rules status labels bottom text indicators
+            const ruleLabel = document.getElementById('rule-lbl');
+            if (selectedRuleSet === 'dido') ruleLabel.innerText = "RULES: DI / DO";
+            else if (selectedRuleSet === 'do') ruleLabel.innerText = "RULES: OPEN / DO";
+            else ruleLabel.innerText = "RULES: NO DOUBLES";
+
+            // Manage Double In Badge notifications 
+            const b1 = document.getElementById('status-p1');
+            const b2 = document.getElementById('status-p2');
+            if(selectedRuleSet === 'dido') {
+                b1.innerText = playerActiveInMatch.p1 ? "Active" : "Need Double In";
+                b2.innerText = playerActiveInMatch.p2 ? "Active" : "Need Double In";
+            } else {
+                b1.innerText = "Open Scoring";
+                b2.innerText = "Open Scoring";
+            }
 
             const txt = document.getElementById('turn-txt');
             if(activePlayer === 'p1') {
@@ -476,7 +567,7 @@
         }
 
         buildBoard();
-        // Event capturing listeners for wedges
+
         document.getElementById('dartboard-svg').addEventListener('click', function(e) {
             if (hasDraggedSignificantly) return; 
             const seg = e.target.closest('.segment');
