@@ -435,6 +435,11 @@ if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
     recognition.interimResults = false;
     recognition.lang = 'en-US';
 
+    recognition.onstart = () => {
+        showVoiceStatus("Listening...");
+        document.getElementById('mic-btn').classList.add('active');
+    };
+
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript.toLowerCase().trim();
         showVoiceStatus(`Heard: "${transcript}"`);
@@ -443,19 +448,26 @@ if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
 
     recognition.onend = () => {
         if (isListening) {
-            // Restart if we are still in listening mode and turn is not over
-            if (currentTurnDarts.length < 3) {
-                recognition.start();
-            } else {
-                stopListening();
-            }
+            // Small delay before restarting to prevent rapid-fire loops and browser throttling
+            setTimeout(() => {
+                if (isListening && currentTurnDarts.length < 3) {
+                    try { recognition.start(); } catch(e) { console.warn("Restart failed:", e); }
+                } else {
+                    stopListening();
+                }
+            }, 400);
         }
     };
 
     recognition.onerror = (event) => {
         console.error("Speech Recognition Error:", event.error);
-        if (event.error === 'not-allowed') {
+        if (event.error === 'no-speech') {
+            // Just let it restart via onend
+        } else if (event.error === 'not-allowed') {
             alert("Microphone access denied. Please enable it in your browser settings.");
+            stopListening();
+        } else {
+            showVoiceStatus(`Error: ${event.error}`);
             stopListening();
         }
     };
@@ -476,12 +488,12 @@ function toggleVoiceRecognition() {
 
 function startListening() {
     isListening = true;
-    document.getElementById('mic-btn').classList.add('active');
-    showVoiceStatus("Listening...");
     try {
         recognition.start();
     } catch(e) {
         console.warn("Recognition already started");
+        showVoiceStatus("Listening...");
+        document.getElementById('mic-btn').classList.add('active');
     }
 }
 
